@@ -106,6 +106,7 @@
     <module>examples</module>
     <module>repl</module>
     <module>launcher</module>
+    <module>ps</module>
   </modules>
 
   <properties>
