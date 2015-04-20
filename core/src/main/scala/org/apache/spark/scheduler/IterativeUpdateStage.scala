@@ -21,9 +21,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.util.CallSite
 
 /**
- * The IterateUpdateStage represents the final stage in a iterating and updating job.
+ * The IterativeUpdateStage represents the final stage in a iterating and updating job.
  */
-private[spark] class IterateUpdateStage(
+private[spark] class IterativeUpdateStage(
     id: Int,
     rdd: RDD[_],
     numTasks: Int,
@@ -32,5 +32,5 @@ private[spark] class IterateUpdateStage(
     callSite: CallSite)
   extends ResultStage(id, rdd, numTasks, parents, jobId, callSite) {
 
-  override def toString: String = "IterateUpdateStage " + id
+  override def toString: String = "IterativeUpdateStage " + id
 }

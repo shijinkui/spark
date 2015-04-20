@@ -122,6 +122,6 @@ class RangeDependency[T](rdd: RDD[T], inStart: Int, outStart: Int, length: Int)
  * It maybe one-to-one or shuffle in runtime
  * @param _rdd the parent RDD
  */
-class IterateUpdateDependency[T](_rdd: RDD[T]) extends Dependency[T] {
+class IterativeUpdateDependency[T](_rdd: RDD[T]) extends Dependency[T] {
   override def rdd: RDD[T] = _rdd
 }

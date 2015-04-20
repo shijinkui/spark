@@ -22,7 +22,10 @@ import java.nio.ByteBuffer
 
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.{ModelRDD, RDD}
+
+import scala.collection.mutable
+import scala.reflect.ClassTag
 
 /**
  * A task that sends back the output to the driver application.
@@ -38,12 +41,12 @@ import org.apache.spark.rdd.RDD
  * @param outputId index of the task in this job (a job can launch tasks on only a subset of the
  *                 input RDD's partitions).
  */
-private[spark] class IterateUpdateTask[T, U](
-    stageId: Int,
-    taskBinary: Broadcast[Array[Byte]],
-    partition: Partition,
-    @transient locs: Seq[TaskLocation],
-    val outputId: Int)
+private[spark] class IterativeUpdateTask[T: ClassTag, U: ClassTag](
+  stageId: Int,
+  taskBinary: Broadcast[Array[Byte]],
+  partition: Partition,
+  @transient locs: Seq[TaskLocation],
+  val outputId: Int)
   extends Task[U](stageId, partition.index) with Serializable {
 
   @transient private[this] val preferredLocs: Seq[TaskLocation] = {
@@ -53,11 +56,46 @@ private[spark] class IterateUpdateTask[T, U](
   override def runTask(context: TaskContext): U = {
     // Deserialize the RDD and the func using the broadcast variables.
     val ser = SparkEnv.get.closureSerializer.newInstance()
-    val (rdd, func) = ser.deserialize[(RDD[T], (TaskContext, Iterator[T]) => U)](
+    val (_rdd, func) = ser.deserialize[(RDD[T], (TaskContext, Iterator[T]) => U)](
       ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
 
-    metrics = Some(context.taskMetrics)
-    func(context, rdd.iterator(partition, context))
+    metrics = Some(context.taskMetrics())
+    val rdd: ModelRDD[T, U] = _rdd.asInstanceOf[ModelRDD[T, U]]
+
+    //  execute iterative updated task
+    val totalIter = rdd.iterations
+    val it = rdd.iterator(partition, context)
+    val map = mutable.Map[Int, Seq[Int]]()
+    val cache = mutable.Map[Int, Array[T]]()
+    val result = new Array[U](it.length)
+
+    for (i <- 0 until totalIter) {
+      // (partitionId, indexOfPartition, modelTotalParti, dataTotoalParti, ResultType) =>
+      // (pidOfDataRDD, indexSeqOfDataRDDPartition)
+      it.zipWithIndex.foreach(f => {
+        val loc: (Int, Int) = rdd.locationFunc(partitionId, f._2, rdd.partitions.length,
+          rdd.totalPartiNumPreRDD, f._1)
+
+        val dt = if (cache.contains(loc._1)) {
+          cache(loc._1)(loc._2)
+        } else {
+          val partition = rdd.preRDD.partitions(loc._1)
+          val data = rdd.preRDD.iterator(partition, context).toArray
+          cache.put(loc._1, data)
+          data(loc._2)
+        }
+
+        //  update result data of this partition
+        val rt = func(context, Iterator(dt))
+        result.update(f._2, rt)
+      })
+
+      //  update data in this
+      rdd.partitions
+    }
+
+    //  todo
+    result.head
   }
 
   // This is only callable on the driver side.
