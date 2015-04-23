@@ -24,10 +24,13 @@ import io.netty.buffer.ByteBuf;
 /** Provides a canonical set of Encoders for simple types. */
 public class Encoders {
 
+  //  base length of int
+  private final static int intLength = 4;
+
   /** Strings are encoded with their length followed by UTF-8 bytes. */
   public static class Strings {
     public static int encodedLength(String s) {
-      return 4 + s.getBytes(Charsets.UTF_8).length;
+      return intLength + s.getBytes(Charsets.UTF_8).length;
     }
 
     public static void encode(ByteBuf buf, String s) {
@@ -47,7 +50,7 @@ public class Encoders {
   /** Byte arrays are encoded with their length followed by bytes. */
   public static class ByteArrays {
     public static int encodedLength(byte[] arr) {
-      return 4 + arr.length;
+      return intLength + arr.length;
     }
 
     public static void encode(ByteBuf buf, byte[] arr) {
@@ -66,7 +69,7 @@ public class Encoders {
   /** String arrays are encoded with the number of strings followed by per-String encoding. */
   public static class StringArrays {
     public static int encodedLength(String[] strings) {
-      int totalLength = 4;
+      int totalLength = intLength;
       for (String s : strings) {
         totalLength += Strings.encodedLength(s);
       }

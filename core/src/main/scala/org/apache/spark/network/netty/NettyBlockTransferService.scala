@@ -50,7 +50,7 @@ class NettyBlockTransferService(conf: SparkConf, securityManager: SecurityManage
 
   override def init(blockDataManager: BlockDataManager): Unit = {
     val (rpcHandler: RpcHandler, bootstrap: Option[TransportClientBootstrap]) = {
-      val nettyRpcHandler = new NettyBlockRpcServer(serializer, blockDataManager)
+      val nettyRpcHandler = new BlockTransferServerHandler(serializer, blockDataManager)
       if (!authEnabled) {
         (nettyRpcHandler, None)
       } else {

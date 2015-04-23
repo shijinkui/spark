@@ -36,12 +36,12 @@ public abstract class BlockTransferMessage implements Encodable {
   protected abstract Type type();
 
   /** Preceding every serialized message is its type, which allows us to deserialize it. */
-  public static enum Type {
+  public enum Type {
     OPEN_BLOCKS(0), UPLOAD_BLOCK(1), REGISTER_EXECUTOR(2), STREAM_HANDLE(3);
 
     private final byte id;
 
-    private Type(int id) {
+    Type(int id) {
       assert id < 128 : "Cannot have more than 128 message types";
       this.id = (byte) id;
     }

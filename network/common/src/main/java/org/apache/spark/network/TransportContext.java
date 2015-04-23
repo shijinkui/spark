@@ -124,8 +124,10 @@ public class TransportContext {
    * properties (such as the remoteAddress()) may not be available yet.
    */
   private TransportChannelHandler createChannelHandler(Channel channel) {
+    //  handle client side request from server side
     TransportResponseHandler responseHandler = new TransportResponseHandler(channel);
     TransportClient client = new TransportClient(channel, responseHandler);
+    //  handle server side request from client side
     TransportRequestHandler requestHandler = new TransportRequestHandler(channel, client,
       rpcHandler);
     return new TransportChannelHandler(client, responseHandler, requestHandler,
