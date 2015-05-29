@@ -14,14 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.util
+
+package org.apache.spark.scheduler
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.util.CallSite
 
 /**
- * protocol of iterate update task, such as SSP, BSP
- * Created by sjk on 17/4/15.
+ * The IterativeUpdateStage represents the final stage in a iterating and updating job.
  */
-class IterativeProtocol(ptype: String)
+private[spark] class TrainingStage(
+    id: Int,
+    rdd: RDD[_],
+    numTasks: Int,
+    parents: List[Stage],
+    jobId: Int,
+    callSite: CallSite)
+  extends ResultStage(id, rdd, numTasks, parents, jobId, callSite) {
 
-sealed case class SyncIter() extends IterativeProtocol("sync")
-
-sealed case class AsyncIter(thresholdValue: Int) extends IterativeProtocol("async")
+  override def toString: String = "IterativeUpdateStage " + id
+}

@@ -206,8 +206,9 @@ private[spark] class Executor(
         env.mapOutputTracker.updateEpoch(task.epoch)
 
         // Run the actual task and measure its runtime.
+        val msgRef = if(task.isInstanceOf[ParameterTask]) Some(heartbeatReceiverRef) else None
         taskStart = System.currentTimeMillis()
-        val value = task.run(taskAttemptId = taskId, attemptNumber = attemptNumber)
+        val value = task.run(taskId, attemptNumber, msgRef)
         val taskFinish = System.currentTimeMillis()
 
         // If the task has been killed, let's fail it.

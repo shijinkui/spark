@@ -43,9 +43,18 @@ private[spark] case class Heartbeat(
  */
 private[spark] case object TaskSchedulerIsSet
 
-private[spark] case object ExpireDeadHosts 
-    
+private[spark] case object ExpireDeadHosts
+
 private[spark] case class HeartbeatResponse(reregisterBlockManager: Boolean)
+
+
+private[spark] case class PsRpcInfo(partitionId: Int, ip: String, port: Int)
+
+private[spark] case class GetAllPsRpc()
+
+private[spark] case class RegistPsRpc(rpcInfo: PsRpcInfo)
+
+private[spark] case class GetAllPsRpcResponse(array: Array[PsRpcInfo])
 
 /**
  * Lives in the driver to receive heartbeats from executors..
@@ -62,18 +71,18 @@ private[spark] class HeartbeatReceiver(sc: SparkContext)
 
   // "spark.network.timeout" uses "seconds", while `spark.storage.blockManagerSlaveTimeoutMs` uses
   // "milliseconds"
-  private val slaveTimeoutMs = 
+  private val slaveTimeoutMs =
     sc.conf.getTimeAsMs("spark.storage.blockManagerSlaveTimeoutMs", "120s")
-  private val executorTimeoutMs = 
+  private val executorTimeoutMs =
     sc.conf.getTimeAsSeconds("spark.network.timeout", s"${slaveTimeoutMs}ms") * 1000
-  
+
   // "spark.network.timeoutInterval" uses "seconds", while
   // "spark.storage.blockManagerTimeoutIntervalMs" uses "milliseconds"
-  private val timeoutIntervalMs = 
+  private val timeoutIntervalMs =
     sc.conf.getTimeAsMs("spark.storage.blockManagerTimeoutIntervalMs", "60s")
-  private val checkTimeoutIntervalMs = 
+  private val checkTimeoutIntervalMs =
     sc.conf.getTimeAsSeconds("spark.network.timeoutInterval", s"${timeoutIntervalMs}ms") * 1000
-  
+
   private var timeoutCheckingTask: ScheduledFuture[_] = null
 
   private val timeoutCheckingThread = Executors.newSingleThreadScheduledExecutor(
@@ -81,6 +90,9 @@ private[spark] class HeartbeatReceiver(sc: SparkContext)
 
   private val killExecutorThread = Executors.newSingleThreadExecutor(
     Utils.namedThreadFactory("kill-executor-thread"))
+
+  //  parameter server list. ip -> port1:port2  #trick#
+  private lazy val psRpcMap = mutable.Map[String, Array[PsRpcInfo]]()
 
   override def onStart(): Unit = {
     timeoutCheckingTask = timeoutCheckingThread.scheduleAtFixedRate(new Runnable {
@@ -112,6 +124,14 @@ private[spark] class HeartbeatReceiver(sc: SparkContext)
         logWarning(s"Dropping $heartbeat because TaskScheduler is not ready yet")
         context.reply(HeartbeatResponse(reregisterBlockManager = true))
       }
+    case regist: RegistPsRpc => {
+      val info = regist.rpcInfo
+      psRpcMap.put(info.ip, psRpcMap.getOrElse(info.ip, Array.empty[Int]) ++ Array(info))
+    }
+    case reqest: GetAllPsRpc => {
+      val ret = psRpcMap.values.flatten.toArray
+      context.reply(GetAllPsRpcResponse(ret))
+    }
   }
 
   private def expireDeadHosts(): Unit = {
@@ -133,7 +153,7 @@ private[spark] class HeartbeatReceiver(sc: SparkContext)
       }
     }
   }
-  
+
   override def onStop(): Unit = {
     if (timeoutCheckingTask != null) {
       timeoutCheckingTask.cancel(true)

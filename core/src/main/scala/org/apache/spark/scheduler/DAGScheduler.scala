@@ -268,8 +268,8 @@ class DAGScheduler(
 
     //  generate ResultStage or IterativeUpdateStage by current RDD's dependency
     val stage = rdd.dependencies match {
-      case iud: Seq[IterativeUpdateDependency[_]] => {
-        new IterativeUpdateStage(id, rdd, numTasks, parentStages, jobId, callSite)
+      case iud: Seq[TrainingDependency[_]] => {
+        new TrainingStage(id, rdd, numTasks, parentStages, jobId, callSite)
       }
       case _ => new ResultStage(id, rdd, numTasks, parentStages, jobId, callSite)
     }
@@ -876,13 +876,13 @@ class DAGScheduler(
           val part = stage.rdd.partitions(id)
           new ShuffleMapTask(stage.id, taskBinary, part, locs)
         }
-      case stage: IterativeUpdateStage =>
+      case stage: TrainingStage =>
         val job = stage.resultOfJob.get
         partitionsToCompute.map { id =>
           val p: Int = job.partitions(id)
           val part = stage.rdd.partitions(p)
           val locs = getPreferredLocs(stage.rdd, p)
-          new IterativeUpdateTask(stage.id, taskBinary, part, locs, id)
+          new TrainingTask(stage.id, taskBinary, part, locs, id)
         }
       case stage: ResultStage =>
         val job = stage.resultOfJob.get

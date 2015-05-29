@@ -19,8 +19,6 @@ package org.apache.spark.rdd
 
 import java.util.Random
 
-import org.apache.spark.broadcast.Broadcast
-
 import scala.collection.{mutable, Map}
 import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
@@ -1012,24 +1010,6 @@ abstract class RDD[T: ClassTag](
    * Return the number of elements in the RDD.
    */
   def count(): Long = sc.runJob(this, Utils.getIteratorSize _).sum
-
-  /**
-   * run
-   * @param iterations iteration number
-   * @param func function of map data to model partition
-   * @param resultPath result RDD serialization
-   */
-  def iterativeUpdate[U: ClassTag](iterations: Int,
-    func: Iterator[T] => U,
-    resultPath: Option[String] = None) = {
-
-    val cleanF = context.clean(func)
-    sc.runJob[T, U](this, (iter: Iterator[T]) => cleanF(iter))
-
-    if (resultPath.isDefined) {
-      saveAsTextFile(resultPath.get)
-    }
-  }
 
   /**
    * :: Experimental ::

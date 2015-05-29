@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark
+package org.apache.spark.ps
 
-import org.apache.spark.util.{IterativeUpdateOps, SyncIter}
+import org.apache.spark.util.{PSOps, SyncIter}
+import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.util.Random
 
@@ -28,22 +29,27 @@ object PSSample {
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("Spark PS Sample")
 
-    //  1. 准备训练数据
-    val trainData: Seq[Array[Int]] = Array.tabulate(1000, 100)((m,
-    n) => m * Random.nextInt(100000)).toSeq
+    //  1.  training data
+    val trainData: Seq[Int] = Array.tabulate(1000)(_ * Random.nextInt(100000)).toSeq
 
-    //  2. 定义定位函数, 根据modelRDD partiton中的一条数据, 定位到相应的训练数据
-    val locationFunc = (modelPID: Int, indexOfModelPartition: Int, totalModelParti: Int,
-    totalDataParti: Int, rt: Int) => {
-      //  用户指定取数据的规则
-      (modelPID, indexOfModelPartition)
+    //  2.  parameter data
+    val parameterData: Seq[Int] = Array.tabulate(1000)(_ * Random.nextInt(100000)).toSeq
+
+    //  3.  training  function
+    val ops = new PSOps[Int, Int](conf)
+    val trainingFn = (context: TaskContext, it: Iterator[Int]) => {
+      //  get parameter data
+      val parameters = ops.getParameter(Seq(11), context)
+      //  usage: use define arithmetic progress, output parameter value
+      val trainingDataPid = context.partitionId()
+
+      println(s"training data partition id:$trainingDataPid, context:${context.getClass}," +
+        s"parameters: $parameters")
+
+      it.sum
     }
 
-    //  3. 定义训练函数, 一条训练数据 到 一条模型数据的映射
-    val func = (it: Iterator[Int]) => it.sum
-
-    //  4. 执行
-    val ops = new IterativeUpdateOps[Array[Int], Int](conf)
-    ops.buildFromSeq(trainData)(locationFunc, SyncIter()).iterativeUpdate[Int](10, func, Some("/tmp/"))
+    //  4.  execute training
+    ops.loadParameter(parameterData).buildFromSeq(trainData, SyncIter(10)).startTraining(trainingFn)
   }
 }

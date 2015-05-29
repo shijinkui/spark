@@ -17,8 +17,7 @@
 package org.apache.spark.rdd
 
 import org.apache.spark._
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.util.IterativeProtocol
+import org.apache.spark.util.PSProtocol
 
 import scala.reflect.ClassTag
 
@@ -26,23 +25,16 @@ import scala.reflect.ClassTag
  * Parameter RDD
  * Created by shijinkui on 15/4/15.
  */
-private[spark] class ModelRDD[T: ClassTag, RT: ClassTag](prev: RDD[T],
-  // (partitionId, indexOfPartition, modelTotalParti, dataTotalParti, ResultType) =>
-  // (pidOfDataRDD, indexSeqOfDataRDDPartition)
-  _locationFunc: (Int, Int, Int, Int, RT) => (Int, Int),
-  _iterProtocol: IterativeProtocol,
-  part: Option[Partitioner] = None) extends RDD[RT](prev.context,
-  List(new IterativeUpdateDependency(prev))) {
+private[spark] class TrainingRDD[ET: ClassTag, PT: ClassTag](
+  prev: RDD[ET],
+  parameterRDD: ParameterRDD[PT],
+  psProtocol: PSProtocol,
+  part: Option[Partitioner] = None) extends RDD[ET](prev.context,
+  List(new TrainingDependency(prev))) {
 
   //  use for task running
-  var iterations: Int = _
-  //  var accumulator: Option[Accumulator] = _
-  //  var broadcast: Option[Broadcast] = _
-
   val preRDD = prev
-  val iterProtocol = _iterProtocol
-  val locationFunc = _locationFunc
-  val totalPartiNumPreRDD = prev.partitions.length
+  val protocol = psProtocol
 
   override val partitioner = part
 
@@ -50,14 +42,14 @@ private[spark] class ModelRDD[T: ClassTag, RT: ClassTag](prev: RDD[T],
    * :: DeveloperApi ::
    * Implemented by subclasses to compute a given partition.
    */
-  override def compute(split: Partition, context: TaskContext): Iterator[RT] = {
-    firstParent[RT].iterator(split, context)
+  override def compute(split: Partition, context: TaskContext): Iterator[ET] = {
+    firstParent.iterator(split, context)
   }
 
   /**
    * Implemented by subclasses to return the set of partitions in this RDD. This method will only
    * be called once, so it is safe to implement a time-consuming computation in it.
    */
-  override protected def getPartitions: Array[Partition] = firstParent[T].partitions
+  override protected def getPartitions: Array[Partition] = firstParent.partitions
 }
 

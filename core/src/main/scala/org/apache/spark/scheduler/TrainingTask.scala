@@ -22,9 +22,8 @@ import java.nio.ByteBuffer
 
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.rdd.{ModelRDD, RDD}
+import org.apache.spark.rdd.{RDD, TrainingRDD}
 
-import scala.collection.mutable
 import scala.reflect.ClassTag
 
 /**
@@ -41,62 +40,47 @@ import scala.reflect.ClassTag
  * @param outputId index of the task in this job (a job can launch tasks on only a subset of the
  *                 input RDD's partitions).
  */
-private[spark] class IterativeUpdateTask[T: ClassTag, U: ClassTag](
+private[spark] class TrainingTask[ET: ClassTag, PT: ClassTag](
   stageId: Int,
   taskBinary: Broadcast[Array[Byte]],
   partition: Partition,
   @transient locs: Seq[TaskLocation],
   val outputId: Int)
-  extends Task[U](stageId, partition.index) with Serializable {
+  extends Task[PT](stageId, partition.index) with Serializable {
 
   @transient private[this] val preferredLocs: Seq[TaskLocation] = {
     if (locs == null) Nil else locs.toSet.toSeq
   }
 
-  override def runTask(context: TaskContext): U = {
+  override def runTask(tc: TaskContext): PT = {
     // Deserialize the RDD and the func using the broadcast variables.
     val ser = SparkEnv.get.closureSerializer.newInstance()
-    val (_rdd, func) = ser.deserialize[(RDD[T], (TaskContext, Iterator[T]) => U)](
-      ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
+    val (_rdd, func) = ser.deserialize
+      [(RDD[ET], (TaskContext, Iterator[ET]) => PT)](
+        ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
 
-    metrics = Some(context.taskMetrics())
-    val rdd: ModelRDD[T, U] = _rdd.asInstanceOf[ModelRDD[T, U]]
+    metrics = Some(tc.taskMetrics())
+    val rdd: TrainingRDD[ET, PT] = _rdd.asInstanceOf[TrainingRDD[ET, PT]]
 
     //  execute iterative updated task
-    val totalIter = rdd.iterations
-    val it = rdd.iterator(partition, context)
-    val map = mutable.Map[Int, Seq[Int]]()
-    val cache = mutable.Map[Int, Array[T]]()
-    val result = new Array[U](it.length)
+    val protocol = rdd.protocol
+    val it: Iterator[ET] = rdd.iterator(partition, tc)
+    val result = new Array[PT](it.length)
+    val context = PSTaskContextImpl(tc)
 
-    for (i <- 0 until totalIter) {
-      // (partitionId, indexOfPartition, modelTotalParti, dataTotoalParti, ResultType) =>
-      // (pidOfDataRDD, indexSeqOfDataRDDPartition)
-      it.zipWithIndex.foreach(f => {
-        val loc: (Int, Int) = rdd.locationFunc(partitionId, f._2, rdd.partitions.length,
-          rdd.totalPartiNumPreRDD, f._1)
+    for (i <- 0 until protocol.getIterations) {
 
-        val dt = if (cache.contains(loc._1)) {
-          cache(loc._1)(loc._2)
-        } else {
-          val partition = rdd.preRDD.partitions(loc._1)
-          val data = rdd.preRDD.iterator(partition, context).toArray
-          cache.put(loc._1, data)
-          data(loc._2)
-        }
-
-        //  update result data of this partition
-        val rt = func(context, Iterator(dt))
-        result.update(f._2, rt)
-      })
-
-      //  update data in this
-      rdd.partitions
+      //  training parameter with current partition and parameters
+      val parameter = func(context, it)
+      println(s"training result of iteration $i, result:$parameter")
+      //  update parameter delta data
+//      msgRpcRef.get.send()
+      context.updateParameter()
     }
 
-    //  todo
     result.head
   }
+
 
   // This is only callable on the driver side.
   override def preferredLocations: Seq[TaskLocation] = preferredLocs

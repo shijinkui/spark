@@ -20,6 +20,8 @@ package org.apache.spark.scheduler
 import java.io.{ByteArrayOutputStream, DataInputStream, DataOutputStream}
 import java.nio.ByteBuffer
 
+import org.apache.spark.rpc.RpcEndpointRef
+
 import scala.collection.mutable.HashMap
 
 import org.apache.spark.{TaskContextImpl, TaskContext}
@@ -44,16 +46,22 @@ import org.apache.spark.util.Utils
  */
 private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) extends Serializable {
 
+  private var msgRpcRef: Option[RpcEndpointRef] = _
   /**
-   * Called by [[Executor]] to run this task.
+   * Called by [[org.apache.spark.executor.Executor]] to run this task.
    *
    * @param taskAttemptId an identifier for this task attempt that is unique within a SparkContext.
    * @param attemptNumber how many times this task has been attempted (0 for the first attempt)
+   * @param _msgRpcRef message rpc endpoint ref, use for [[org.apache.spark.ParameterTask]]
    * @return the result of the task
    */
-  final def run(taskAttemptId: Long, attemptNumber: Int): T = {
-    context = new TaskContextImpl(stageId = stageId, partitionId = partitionId,
-      taskAttemptId = taskAttemptId, attemptNumber = attemptNumber, runningLocally = false)
+  final def run(
+    taskAttemptId: Long,
+    attemptNumber: Int,
+    _msgRpcRef: Option[RpcEndpointRef] = None
+  ): T = {
+    this.msgRpcRef = _msgRpcRef
+    context = new TaskContextImpl(stageId, partitionId, taskAttemptId, attemptNumber, false)
     TaskContext.setTaskContext(context)
     context.taskMetrics.setHostname(Utils.localHostName())
     taskThread = Thread.currentThread()
@@ -106,7 +114,7 @@ private[spark] abstract class Task[T](val stageId: Int, var partitionId: Int) ex
     if (interruptThread && taskThread != null) {
       taskThread.interrupt()
     }
-  }  
+  }
 }
 
 /**

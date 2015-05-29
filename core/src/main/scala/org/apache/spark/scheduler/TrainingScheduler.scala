@@ -16,13 +16,13 @@
  */
 package org.apache.spark.scheduler
 
-import org.apache.spark.util.{AsyncIter, IterativeProtocol, SyncIter}
+import org.apache.spark.util.{AsyncIter, PSProtocol, SyncIter}
 
 /**
- * scheduler of [[IterativeUpdateTask]]
+ * scheduler of [[TrainingTask]]
  * Created by sjk on 17/4/15.
  */
-private[spark] class IterativeUpdateScheduler {
+private[spark] class TrainingScheduler {
 
   //  pid -> (currentIterator, totalCost)
   private lazy val progress = scala.collection.mutable.Map[Int, (Int, Long)]()
@@ -31,7 +31,7 @@ private[spark] class IterativeUpdateScheduler {
   /**
    * finish one iterate
    * @param pid partition id
-   * @param curIter current running iteration of [[IterativeUpdateTask]]
+   * @param curIter current running iteration of [[TrainingTask]]
    * @param cost the finished iteration time cost, milliseconds
    * @return
    */
@@ -44,11 +44,11 @@ private[spark] class IterativeUpdateScheduler {
    * whether run next iteration, or wait until fit sync protocol
    * @param pid partition id
    * @param iterProtocol iteration protocol, sync or async
-   * @param curIter current running iteration of [[IterativeUpdateTask]]
+   * @param curIter current running iteration of [[TrainingTask]]
    * @return boolean and wainting milliseconds averaged
    */
   private def canRunNext(pid: Int, curIter: Int,
-    iterProtocol: IterativeProtocol): (Boolean, Long) = {
+    iterProtocol: PSProtocol): (Boolean, Long) = {
 
     val averageCost = progress.getOrElse(pid, (curIter, 0L))._2 / curIter
 
