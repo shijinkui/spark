@@ -48,7 +48,7 @@ class EdgeRDDImpl[ED: ClassTag, VD: ClassTag] private[graphx] (
   override val partitioner =
     partitionsRDD.partitioner.orElse(Some(new HashPartitioner(partitions.size)))
 
-  override def collect(): Array[Edge[ED]] = this.map(_.copy()).collect()
+  override def collect(): Array[Edge[ED]] = this.map[Edge[ED]](_.copy()).collect()
 
   /**
    * Persists the edge partitions at the specified storage level, ignoring any existing target
