@@ -84,7 +84,7 @@ abstract class LogicalPlan extends QueryPlan[LogicalPlan] with Logging {
    * [[LeafNode]]s must override this.
    */
   def statistics: Statistics = {
-    if (children.size == 0) {
+    if (children.isEmpty) {
       throw new UnsupportedOperationException(s"LeafNode $nodeName must implement statistics.")
     }
     Statistics(sizeInBytes = children.map(_.statistics.sizeInBytes).product)

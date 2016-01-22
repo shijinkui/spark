@@ -97,7 +97,7 @@ private[deploy] object JsonProtocol {
     ("coresused" -> obj.coresUsed) ~
     ("memory" -> obj.memory) ~
     ("memoryused" -> obj.memoryUsed) ~
-    ("executors" -> obj.executors.toList.map(writeExecutorRunner)) ~
-    ("finishedexecutors" -> obj.finishedExecutors.toList.map(writeExecutorRunner))
+    ("executors" -> obj.executors.map(writeExecutorRunner)) ~
+    ("finishedexecutors" -> obj.finishedExecutors.map(writeExecutorRunner))
   }
 }

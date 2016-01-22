@@ -90,9 +90,11 @@ object CatalystTypeConverters {
      */
     final def toCatalyst(@Nullable maybeScalaValue: Any): CatalystType = {
       maybeScalaValue match {
+        case opt: Option[ScalaInputType] => opt match {
+          case Some(sv) => toCatalystImpl(sv)
+          case x => null.asInstanceOf[CatalystType]
+        }
         case null => null.asInstanceOf[CatalystType]
-        case None => null.asInstanceOf[CatalystType]
-        case Some(sv: ScalaInputType) => toCatalystImpl(sv)
         case x => toCatalystImpl(x.asInstanceOf[ScalaInputType])
       }
     }
