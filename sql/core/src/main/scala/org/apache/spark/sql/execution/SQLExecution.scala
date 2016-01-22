@@ -21,8 +21,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd,
-  SparkListenerSQLExecutionStart}
+import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
 import org.apache.spark.util.Utils
 
 private[sql] object SQLExecution {
@@ -44,7 +43,7 @@ private[sql] object SQLExecution {
     if (oldExecutionId == null) {
       val executionId = SQLExecution.nextExecutionId
       sc.setLocalProperty(EXECUTION_ID_KEY, executionId.toString)
-      val r = try {
+      try {
         val callSite = Utils.getCallSite()
         sqlContext.sparkContext.listenerBus.post(SparkListenerSQLExecutionStart(
           executionId, callSite.shortForm, callSite.longForm, queryExecution.toString,
@@ -58,7 +57,6 @@ private[sql] object SQLExecution {
       } finally {
         sc.setLocalProperty(EXECUTION_ID_KEY, null)
       }
-      r
     } else {
       // Don't support nested `withNewExecutionId`. This is an example of the nested
       // `withNewExecutionId`:
