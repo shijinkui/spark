@@ -86,7 +86,7 @@ class SQLContext private[sql](
   // Assert no root SQLContext is running when allowMultipleContexts is false.
   {
     if (!allowMultipleContexts && isRootContext) {
-      SQLContext.getInstantiatedContextOption() match {
+      SQLContext.getInstantiatedContextOption match {
         case Some(rootSQLContext) =>
           val errMsg = "Only one SQLContext/HiveContext may be running in this JVM. " +
             s"It is recommended to use SQLContext.getOrCreate to get the instantiated " +
@@ -996,7 +996,7 @@ object SQLContext {
     }
   }
 
-  private[sql] def getInstantiatedContextOption(): Option[SQLContext] = {
+  private[sql] def getInstantiatedContextOption: Option[SQLContext] = {
     Option(instantiatedContext.get())
   }
 
@@ -1025,9 +1025,7 @@ object SQLContext {
     activeContext.remove()
   }
 
-  private[sql] def getActive(): Option[SQLContext] = {
-    Option(activeContext.get())
-  }
+  private[sql] def getActive: Option[SQLContext] = Option(activeContext.get())
 
   /**
    * Converts an iterator of Java Beans to InternalRow using the provided

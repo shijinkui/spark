@@ -43,7 +43,7 @@ abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging with Serializ
    * populated by the query planning infrastructure.
    */
   @transient
-  protected[spark] final val sqlContext = SQLContext.getActive().getOrElse(null)
+  protected[spark] final val sqlContext = SQLContext.getActive.orNull
 
   protected def sparkContext = sqlContext.sparkContext
 
@@ -103,7 +103,7 @@ abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging with Serializ
    * Concrete implementations of SparkPlan should override doExecute instead.
    */
   final def execute(): RDD[InternalRow] = {
-    RDDOperationScope.withScope(sparkContext, nodeName, false, true) {
+    RDDOperationScope.withScope(sparkContext, nodeName, allowNesting = false, ignoreParent = true) {
       prepare()
       doExecute()
     }
@@ -173,7 +173,7 @@ abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging with Serializ
         // If we didn't find any rows after the first iteration, just try all partitions next.
         // Otherwise, interpolate the number of partitions we need to try, but overestimate it
         // by 50%.
-        if (buf.size == 0) {
+        if (buf.isEmpty) {
           numPartsToTry = totalParts - 1
         } else {
           numPartsToTry = (1.5 * n * partsScanned / buf.size).toInt

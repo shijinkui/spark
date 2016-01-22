@@ -306,12 +306,10 @@ trait Row extends Serializable {
    * @throws ClassCastException when data type does not match.
    */
   def getStruct(i: Int): Row = {
-    // Product and Row both are recoginized as StructType in a Row
-    val t = get(i)
-    if (t.isInstanceOf[Product]) {
-      Row.fromTuple(t.asInstanceOf[Product])
-    } else {
-      t.asInstanceOf[Row]
+    // Product and Row both are recognized as StructType in a Row
+    get(i) match {
+      case product: Product => Row.fromTuple(product)
+      case x => x.asInstanceOf[Row]
     }
   }
 
@@ -471,7 +469,7 @@ trait Row extends Serializable {
    * @throws ClassCastException when data type does not match.
    * @throws NullPointerException when value is null.
    */
-  private def getAnyValAs[T <: AnyVal](i: Int): T =
-    if (isNullAt(i)) throw new NullPointerException(s"Value at index $i in null")
-    else getAs[T](i)
+  private def getAnyValAs[T <: AnyVal](i: Int): T = {
+    if (isNullAt(i)) throw new NullPointerException(s"Value at index $i in null") else getAs[T](i)
+  }
 }
